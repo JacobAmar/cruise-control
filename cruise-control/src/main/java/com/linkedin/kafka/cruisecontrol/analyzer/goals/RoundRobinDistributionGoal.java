@@ -1,27 +1,26 @@
+/*
+ * Copyright 2017 LinkedIn Corp. Licensed under the BSD 2-Clause License (the "License"). See License in the project root for license information.
+ */
+
 package com.linkedin.kafka.cruisecontrol.analyzer.goals;
 
 import com.linkedin.kafka.cruisecontrol.analyzer.ActionAcceptance;
-import com.linkedin.kafka.cruisecontrol.analyzer.BalancingAction;
 import com.linkedin.kafka.cruisecontrol.analyzer.ActionType;
+import com.linkedin.kafka.cruisecontrol.analyzer.BalancingAction;
 import com.linkedin.kafka.cruisecontrol.analyzer.OptimizationOptions;
+import com.linkedin.kafka.cruisecontrol.common.Statistic;
 import com.linkedin.kafka.cruisecontrol.exception.OptimizationFailureException;
 import com.linkedin.kafka.cruisecontrol.model.Broker;
 import com.linkedin.kafka.cruisecontrol.model.ClusterModel;
-import com.linkedin.kafka.cruisecontrol.model.Replica;
 import com.linkedin.kafka.cruisecontrol.model.ClusterModelStats;
+import com.linkedin.kafka.cruisecontrol.model.Replica;
 import com.linkedin.kafka.cruisecontrol.monitor.ModelCompletenessRequirements;
-import com.linkedin.kafka.cruisecontrol.common.Resource;
-import com.linkedin.kafka.cruisecontrol.common.Statistic;
-
-
 import java.util.ArrayList;
-import java.util.Collection;
 import java.util.Collections;
 import java.util.Comparator;
 import java.util.List;
 import java.util.Set;
 import java.util.stream.Collectors;
-
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -90,9 +89,7 @@ public class RoundRobinDistributionGoal extends ReplicaDistributionAbstractGoal 
         List<Broker> healthyBrokers = new ArrayList<>(clusterModel.aliveBrokers());
         Collections.sort(healthyBrokers, Comparator.comparingInt(Broker::id));
 
-        // First balance leaders
         distributeLeaderReplicas(broker, clusterModel, healthyBrokers, optimizedGoals, optimizationOptions);
-        // Then balance all replicas
         distributeAllReplicas(broker, clusterModel, healthyBrokers, optimizedGoals, optimizationOptions);
     }
 
@@ -149,7 +146,8 @@ public class RoundRobinDistributionGoal extends ReplicaDistributionAbstractGoal 
         
         double currentCount = replica.broker().replicas().size();
         double meanCount = _avgReplicasOnAliveBroker;
-        return Math.abs(currentCount - meanCount) <= meanCount * (balancePercentage() - 1);
+        double balanceLimit = meanCount * (balancePercentage() - 1);
+        return Math.abs(currentCount - meanCount) <= balanceLimit;
     }
 
     private Broker findBestTargetBroker(Replica replica, List<Broker> healthyBrokers, ClusterModel clusterModel) {
@@ -200,7 +198,6 @@ public class RoundRobinDistributionGoal extends ReplicaDistributionAbstractGoal 
         return new ClusterModelStatsComparator() {
             @Override
             public int compare(ClusterModelStats stats1, ClusterModelStats stats2) {
-                // Compare replica distribution
                 double stdDev1 = stats1.replicaStats().get(Statistic.ST_DEV).doubleValue();
                 double stdDev2 = stats2.replicaStats().get(Statistic.ST_DEV).doubleValue();
                 return Double.compare(stdDev1, stdDev2);
@@ -225,6 +222,6 @@ public class RoundRobinDistributionGoal extends ReplicaDistributionAbstractGoal 
 
     @Override
     protected double balancePercentage() {
-        return 1.05; // Allow 5% imbalance
+        return 1.05;
     }
 }
